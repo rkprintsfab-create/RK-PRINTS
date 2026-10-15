@@ -1,0 +1,297 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const KhatabookApp());
+}
+
+class KhatabookApp extends StatelessWidget {
+  const KhatabookApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Cross-Platform Khata',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.indigo,
+        useMaterial3: true,
+      ),
+      home: const MainResponsiveLayout(),
+    );
+  }
+}
+
+// Mock Data Structure
+class Customer {
+  final String name;
+  final double balance; // Positive means they owe you (Credit), Negative means you owe them
+  Customer(this.name, this.balance);
+}
+
+class Transaction {
+  final String description;
+  final double amount;
+  final bool isCredit; // true = You Gave, false = You Got
+  final String date;
+  Transaction(this.description, this.amount, this.isCredit, this.date);
+}
+
+// Main Responsive Entry Point
+class MainResponsiveLayout extends StatefulWidget {
+  const MainResponsiveLayout({super.key});
+
+  @override
+  State<MainResponsiveLayout> createState() => _MainResponsiveLayoutState();
+}
+
+class _MainResponsiveLayoutState extends State<MainResponsiveLayout> {
+  // Sample Data
+  final List<Customer> customers = [
+    Customer("Arun Kumar", 1500.00),
+    Customer("Priya Sharma", -450.00),
+    Customer("Rajesh Patel", 0.00),
+    Customer("Amit Singh", 2800.00),
+  ];
+
+  final List<Transaction> mockTransactions = [
+    Transaction("Groceries Delivery", 1200, true, "14 Oct 2026"),
+    Transaction("Partial Online Payment", 500, false, "15 Oct 2026"),
+    Transaction("Wholesale Stock Item", 800, true, "15 Oct 2026"),
+  ];
+
+  Customer? selectedCustomer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default select first customer on PC view initialization
+    selectedCustomer = customers.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check screen width to determine if it's a PC/Tablet screen or Mobile screen
+    bool isDesktop = MediaQuery.of(context).size.width > 768;
+
+    if (isDesktop) {
+      // PC Layout: Split Screen (Master-Detail)
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('💡 Business Ledger Dashboard (PC View)'),
+          backgroundColor: Colors.indigo.shade50,
+        ),
+        body: Row(
+          children: [
+            // Left Column: Customer List (1/3 Width)
+            Expanded(
+              flex: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: Colors.grey.shade300)),
+                ),
+                child: CustomerListWidget(
+                  customers: customers,
+                  selectedCustomer: selectedCustomer,
+                  onCustomerTap: (customer) {
+                    setState(() {
+                      selectedCustomer = customer;
+                    });
+                  },
+                ),
+              ),
+            ),
+            // Right Column: Active Ledger Details (2/3 Width)
+            Expanded(
+              flex: 2,
+              child: selectedCustomer != null
+                  ? LedgerDetailWidget(
+                      customer: selectedCustomer!,
+                      transactions: mockTransactions,
+                    )
+                  : const Center(child: Text("Select a customer to view ledger")),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Mobile Layout: Single Screen List view
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('📱 My Khatabook'),
+          backgroundColor: Colors.indigo.shade100,
+        ),
+        body: CustomerListWidget(
+          customers: customers,
+          selectedCustomer: null,
+          onCustomerTap: (customer) {
+            // Drill down into ledger page on mobile
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => Scaffold(
+                  appBar: AppBar(title: Text(customer.name)),
+                  body: LedgerDetailWidget(
+                    customer: customer,
+                    transactions: mockTransactions,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+  }
+}
+
+// Reusable Widget: Customer List
+class CustomerListWidget extends StatelessWidget {
+  final List<Customer> customers;
+  final Customer? selectedCustomer;
+  final Function(Customer) onCustomerTap;
+
+  const CustomerListWidget({
+    super.key,
+    required this.customers,
+    required this.selectedCustomer,
+    required this.onCustomerTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      itemCount: customers.count ?? customers.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final customer = customers[index];
+        bool isSelected = selectedCustomer == customer;
+
+        return ListTile(
+          selected: isSelected,
+          selectedTileColor: Colors.indigo.shade50,
+          leading: CircleAvatar(
+            backgroundColor: Colors.indigo,
+            foregroundColor: Colors.white,
+            child: Text(customer.name[0]),
+          ),
+          title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text(
+            customer.balance >= 0 
+                ? 'You gave: ₹${customer.balance.toStringAsFixed(2)}'
+                : 'You got: ₹${(customer.balance * -1).toStringAsFixed(2)}',
+            style: TextStyle(
+              color: customer.balance >= 0 ? Colors.red.shade700 : Colors.green.shade700,
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => onCustomerTap(customer),
+        );
+      },
+    );
+  }
+}
+
+// Reusable Widget: Detailed Ledger / Statement Ledger View
+class LedgerDetailWidget extends StatelessWidget {
+  final Customer customer;
+  final List<Transaction> transactions;
+
+  const LedgerDetailWidget({
+    super.key,
+    required this.customer,
+    required this.transactions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Net Balance Summary Bar
+        Container(
+          padding: const EdgeInsets.all(20),
+          color: Colors.grey.shade100,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                customer.name,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text("Net Balance", style: TextStyle(color: Colors.grey)),
+                  Text(
+                    '₹${customer.balance.abs().toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: customer.balance >= 0 ? Colors.red.shade700 : Colors.green.shade700,
+                    ),
+                  ),
+                  Text(
+                    customer.balance >= 0 ? "You will get" : "You will give",
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  )
+                ],
+              )
+            ],
+          ),
+        ),
+        
+        // Transaction Entries History
+        Expanded(
+          child: ListView.builder(
+            itemCount: transactions.length,
+            itemBuilder: (context, index) {
+              final tx = transactions[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(tx.description, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text(tx.date, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          // You Gave Block
+                          Container(
+                            width: 90,
+                            padding: const EdgeInsets.all(8),
+                            color: tx.isCredit ? Colors.red.shade50 : Colors.transparent,
+                            child: Text(
+                              tx.isCredit ? '₹${tx.amount}' : '-',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // You Got Block
+                          Container(
+                            width: 90,
+                            padding: const EdgeInsets.all(8),
+                            color: !tx.isCredit ? Colors.green.shade50 : Colors.transparent,
+                            child: Text(
+                              !tx.isCredit ? '₹${tx.amount}' : '-',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
